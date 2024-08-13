@@ -1,10 +1,15 @@
+require("dotenv").config();
 const TelegramBot = require('node-telegram-bot-api');
-const token = "7302018267:AAHMGwEykO6dcfhvoo63namXkuCZ0_o9_no";
-const bot = new TelegramBot(token, {polling: true});
-const webAppUrl = 'https://1win-global-pro.com/bonus500';
-const imgPATH = "https://liquipedia.net/commons/images/thumb/2/24/1win_2024_lightmode.png/600px-1win_2024_lightmode.png"
-const dbPath = "https://sheetdb.io/api/v1/9r9b3flxo3dvn"
+const registrationUrl = process.env.REGISTRATION_AND_LOGIN;
+const premiumChanel = process.env.PREMIUM_CHANEL;
+const dbPath = process.env.DB_SHEETS_PATH
+const token = process.env.TOKEN
 
+const IMAGEPATH = "https://drive.google.com/u/0/drive-viewer/AKGpihZhfjXvN6O9ZdoIzOM-ZkLfMNCZx1h0yiCuYyTKDnK41iGpMlmbOXBTRwAYHnXiVt6SkkEqL5VD4y2NRQSTyrabkM_xCXZSe6Y=s1600-rw-v1"
+
+
+
+const bot = new TelegramBot(token, {polling: true});
 const saveUser = async (user) => {
     try {
         const response = await fetch(dbPath, {
@@ -24,6 +29,10 @@ const saveUser = async (user) => {
         console.error('Ошибка при попытке сохранить данные пользователя:', error);
     }
 }
+
+const CALLBACK_DATA = {
+    BOT_FEATURES: 'bot_features',
+};
 
 const validateUser = async (id) => {
     try {
@@ -51,17 +60,6 @@ const validateUser = async (id) => {
 }
 
 
-bot.onText(/\/echo (.+)/, (msg, match) => {
-    // 'msg' is the received Message from Telegram
-    // 'match' is the result of executing the regexp above on the text content
-    // of the message
-
-    const chatId = msg.chat.id;
-    const resp = match[1]; // the captured "whatever"
-
-    // send back the matched "whatever" to the chat
-    bot.sendMessage(chatId, resp);
-});
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text
@@ -85,7 +83,7 @@ bot.on('message', async (msg) => {
     }
 
     if (text === '/start') {
-        await bot.sendPhoto(chatId, imgPATH, {
+        await bot.sendPhoto(chatId, IMAGEPATH, {
             caption: 'Этот бот - полная замена официального сайта 1win в России и странах СНГ \n' +
                 '\n' +
                 'Мы вывели казино на новый уровень, теперь можно играть в любимые слоты прямо в телеграмме 🎰\n' +
@@ -93,10 +91,43 @@ bot.on('message', async (msg) => {
                 'Нажимайте на кнопку Регистрация и получите Бонус + 500% к депозиту и 30% кэшбэк на казино 💸',
             reply_markup: {
                 inline_keyboard: [
-                    [{text: 'Что умеет этот бот? 🤖', web_app: {url: webAppUrl}}],
-                    [{text: 'Акции и Бонусы ✈️', web_app: {url: webAppUrl}}],
-                    [{text: 'Регистрация с Промокодом 🚀', web_app: {url: webAppUrl}}],
-                    [{text: 'Подписаться на канал 1win Premium 😍', web_app: {url: webAppUrl}}],
+                    [{text: 'Регистрация 🗂️', web_app: {url: registrationUrl}}],
+                    [{text: 'Войти 🔐', web_app: {url: registrationUrl}}],
+                    [{text: 'Что умеет этот бот? 🤖', callback_data: CALLBACK_DATA.BOT_FEATURES}],
+                    // [{text: 'Акции и Бонусы ✈️', web_app: {url: registrationWithBonus}}],
+                    // [{text: 'Регистрация с Промокодом 🚀', web_app: {url: registrationWithBonus}}],
+                    [{text: 'Подписаться на канал 1win Premium 😍', url: premiumChanel}],
+                ],
+                resize_keyboard: true,
+                one_time_keyboard: true,
+            },
+        });
+    }
+});
+
+
+// Handle callback queries
+bot.on('callback_query', async (query) => {
+    const chatId = query.message.chat.id;
+    const callbackData = query.data;
+
+    if (callbackData === CALLBACK_DATA.BOT_FEATURES) {
+        await bot.sendPhoto(chatId, IMAGEPATH, {
+            caption: 'Что умеет этот бот ?\n' +
+                '\n' +
+                'Официальный бот от компании 1win \n' +
+                '🤖 Бот создан для безопасного использования казино в Telegram. \n' +
+                '✅ Теперь вы можете играть в любимые слоты прямо тут\n' +
+                '✅ Для этого нажмите кнопку регистрация внизу экрана\n' +
+                '✅ Пройдите регистрацию и наслаждайтесь игровым процессом \n' +
+                '\n' +
+                'Все данные данные защищены🛡',
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: 'Регистрация 🗂️', web_app: { url: registrationUrl } }],
+                    [{ text: 'Войти 🔐', web_app: { url: registrationUrl } }],
+                    [{ text: 'Что умеет этот бот? 🤖', callback_data: CALLBACK_DATA.BOT_FEATURES }],
+                    [{ text: 'Подписаться на канал 1win Premium 😍', url: premiumChanel }],
                 ],
                 resize_keyboard: true,
                 one_time_keyboard: true,
@@ -104,4 +135,3 @@ bot.on('message', async (msg) => {
         });
     }
 });
-
