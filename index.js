@@ -5,50 +5,64 @@ const fs = require("fs");
 const registrationUrl = process.env.REGISTRATION_AND_LOGIN;
 const premiumChanel = process.env.PREMIUM_CHANEL;
 const token = process.env.TOKEN;
-const fileName = process.env.FILE
-const IMAGEPATH = process.env.IMGPATH
+const fileName = process.env.FILE;
+const countFileName = process.env.FILE_COUNT;
+const IMAGEPATH = process.env.IMGPATH;
 
 const CALLBACK_DATA = {
     BOT_FEATURES: "bot_features",
 };
 
-// Проверка и создание файла, если его нет
-function checkAndCreateFile() {
-    if (!fs.existsSync(fileName)) {
-        // Если файла нет, создаем его с начальной структурой
-        fs.writeFileSync(fileName, 'Total users: 0\n', 'utf8');
+// Функция для проверки и создания файлов
+function checkAndCreateFile(file) {
+    if (!fs.existsSync(file)) {
+        if (file === countFileName) {
+            fs.writeFileSync(file, JSON.stringify({totalUsers: 0}, null, 2), 'utf8');
+        } else {
+            const initialData = {users: []};
+            fs.writeFileSync(file, JSON.stringify(initialData, null, 2), 'utf8');
+        }
     }
 }
 
-// Загрузка данных пользователей из файла
+// Загрузка данных пользователей
 function loadUserData() {
-    checkAndCreateFile(); // Проверяем и создаем файл, если нужно
-
+    checkAndCreateFile(fileName);
     try {
         const data = fs.readFileSync(fileName, 'utf8');
-        const lines = data.split('\n').filter(Boolean);
-
-        // Первая строка — это количество пользователей
-        const countLine = lines[0] || 'Total users: 0';
-        const count = parseInt(countLine.split(': ')[1], 10) || 0;
-        const users = lines.slice(1); // Все строки, кроме первой
-
-        return {users, count};
+        return JSON.parse(data).users || [];
     } catch (err) {
         console.error("Ошибка при попытке загрузить данные пользователя:", err);
-        return {users: [], count: 0};
+        return [];
     }
 }
 
-// Сохранение данных пользователей в файл
-function saveUserData(users, count) {
-    const data = `Total users: ${count}\n` + users.join('\n') + '\n';
-    fs.writeFileSync(fileName, data, 'utf8');
+// Сохранение данных пользователей
+function saveUserData(users) {
+    const data = {users: users};
+    fs.writeFileSync(fileName, JSON.stringify(data, null, 2), 'utf8');
+}
+
+// Загрузка счетчика пользователей
+function loadUserCount() {
+    checkAndCreateFile(countFileName);
+    try {
+        const data = fs.readFileSync(countFileName, 'utf8');
+        return JSON.parse(data).totalUsers || 0;
+    } catch (err) {
+        console.error("Ошибка при попытке загрузить количество пользователей:", err);
+        return 0;
+    }
+}
+
+// Сохранение счетчика пользователей
+function saveUserCount(count) {
+    const data = {totalUsers: count};
+    fs.writeFileSync(countFileName, JSON.stringify(data, null, 2), 'utf8');
 }
 
 const bot = new TelegramBot(token, {polling: true});
 
-// Обрабатываем команду /start
 bot.on("message", async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text;
@@ -58,21 +72,31 @@ bot.on("message", async (msg) => {
     const username = msg.from.username || "Никнейм не установлен";
     const languageCode = msg.from.language_code;
 
+    const now = new Date();
     const user = {
         userId,
         firstName,
         nickname: username,
         languageCode,
-        date: new Date(Date.now()).toLocaleString("ru-RU"),
+        date: now.toLocaleDateString("ru-RU"),
+        time: now.toLocaleTimeString("ru-RU")
     };
 
-    const {users, count} = loadUserData();
-    const userRecord = `${userId} | ${username} | ${user.date}`;
+    const users = loadUserData();
+    const userRecord = {
+        userId: userId,
+        nickname: username,
+        languageCode: languageCode,
+        date: user.date,
+        time: user.time
+    };
 
-    if (!users.some(line => line.startsWith(String(userId)))) {
+    if (!users.some(line => line.userId === userId)) {
         users.push(userRecord);
-        const updatedCount = count + 1;
-        saveUserData(users, updatedCount);
+        saveUserData(users);
+
+        const count = loadUserCount() + 1;
+        saveUserCount(count);
     }
 
     if (text === "/start") {
@@ -107,12 +131,12 @@ bot.on("message", async (msg) => {
     }
 
     if (text === "/count=ebdf4515") {
-        const {count} = loadUserData();
-        await bot.sendMessage(chatId, `total count: ${count}`);
+        const count = loadUserCount();
+        await bot.sendMessage(chatId, `Total count: ${count}`);
     }
 });
 
-// Обрабатываем callback queries
+// Обработка callback queries
 bot.on("callback_query", async (query) => {
     const chatId = query.message.chat.id;
     const callbackData = query.data;
@@ -145,7 +169,7 @@ bot.on("callback_query", async (query) => {
             },
         });
     } else if (callbackData === CALLBACK_DATA.SECRET_COMMAND) {
-        const {count} = loadUserData();
+        const count = loadUserCount();
         await bot.sendMessage(chatId, `Общее количество уникальных пользователей, которые нажали /start: ${count}`);
     }
 });
